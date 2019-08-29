@@ -1,21 +1,27 @@
-from PyQt5.QtWidgets import QApplication, QLabel, QCheckBox ,QDialog
-from PyQt5.Qt import QPushButton, pyqtSlot
+from PyQt5.QtWidgets import QWidget, QAction, qApp, QApplication, QLabel,QInputDialog, QCheckBox ,QDialog, QComboBox,QGridLayout, QLineEdit
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.Qt import QTextEdit, QVBoxLayout, QPushButton, QHBoxLayout, pyqtSlot
+from PyQt5.QtCore import Qt
+import cv2
+import numpy as np
+
 import sys
 
 class InitScreen(QDialog):
-    def __init__(self):
+    def __init__(self,robot):
+        
         super().__init__()
-        self.isCheckedOne = False
-        self.isCheckedTwo = False
-        self.isCheckedThree = False
+        self.robot = robot
+        self.isCheckedOne=False
+        self.isCheckedTwo=False
+        self.isCheckedThree=False
 
-        self.isPlayerOne = False
-        self.isPlayerTwo = False
-        self.isPlayerThree = False
+        self.isPlayerOne=False
+        self.isPlayerTwo=False
+        self.isPlayerThree=False
 
         self.UI()
-
-    "Метод содержащий данные интерфейса"
+        
     def UI(self):
         self.setWindowTitle("Fen Clear?")
         self.setGeometry(300, 150, 250, 125)
@@ -30,15 +36,12 @@ class InitScreen(QDialog):
 
         text = QLabel('Select players who will be clear', self)
         text.move(10, 60)
-
         self.playerFenOne = QCheckBox('Player 1', self)
         self.playerFenOne.move(10,80)
         self.playerFenOne.clicked.connect(self._clickedFirstPlayer)
-
         self.playerFenTwo = QCheckBox('Player 2', self)
         self.playerFenTwo.move(85,80)
         self.playerFenTwo.clicked.connect(self._clickedSecondPlayer)
-
         self.playerFenThree = QCheckBox('Player 3', self)
         self.playerFenThree.move(170,80)
         self.playerFenThree.clicked.connect(self._clickedThirdPlayer)
@@ -46,22 +49,19 @@ class InitScreen(QDialog):
         
     def Close(self):
         self.close()
-
-    "Метор для очистки данных стола"
+    
     def Clear(self):
-        if self.isPlayerOne:
+        if self.isPlayerOne==True:
             filename = 'player0.txt'
             file = open(filename,'w')
             file.write('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
             file.close()
-
-        if self.isPlayerTwo:
+        if self.isPlayerTwo==True:
             filename = 'player1.txt'
             file = open(filename,'w')
             file.write('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
             file.close()
-
-        if self.isPlayerThree:
+        if self.isPlayerThree==True:   
             filename = 'player2.txt'
             file = open(filename,'w')
             file.write('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
@@ -99,6 +99,6 @@ class InitScreen(QDialog):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     robot = []
-    ex = InitScreen()
+    ex = InitScreen(robot)
     
     sys.exit(app.exec_())

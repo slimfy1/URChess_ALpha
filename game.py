@@ -2,41 +2,39 @@
 # -*- coding: utf-8 -*-
 
 
+import urx 
+import chess 
+import sys
 from PyQt5.QtWidgets import QWidget, QAction, qApp, QApplication, QLabel,QGridLayout
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.Qt import QTextEdit, QVBoxLayout, QPushButton, QHBoxLayout
+import InitScreen
 import fenInit
 from Threads import *
 from PyQt5 import QtCore
-from InitAll import ConnectionList
-from InitScreen import InitScreenRob
-from InitAll import ConnectionList
+from dataStructers import camId as id
+#from engine import Engine
 
 class MainGame(QWidget):
-    "Инициализация класса"
+    "'it` a game class"''
     def __init__(self,debug,playersNum):
         super().__init__()
         self.debug = debug
+        #self.camera = cv2.VideoCapture(id+700)
 
-        if  self.debug:
+        #self.connect2Robot()
+
+        if self.debug:
             self.debug = debug
-            print('Launching in debug mode')
+            print('this is debug mode')
         else:
-            print('Launching in normal mode')
-
-        "Запуск окна очистки памяти стола"
-        dialog = fenInit.InitScreen()
+            print('all fine')
+        self.robot = FakeRobot('ip',1)
+        dialog = fenInit.InitScreen(self.robot)
+        dialog.exec()
+        dialog = InitScreen.InitScreen(0, self.robot)
         dialog.exec()
 
-        "Вызов метода подключения к роботу"
-        robotcon = ConnectionList()
-        self.robot = robotcon.connect2Robot()
-
-        "Запуск основного окна"
-        dialog = InitScreenRob(0, self.robot)
-        dialog.exec()
-
-        "Начало запуска окна с игрой"
         self.playersNum = dialog.playersNum
         self.restartStatus = [True,True,True]
         self.difficulties =dialog.plDifficult
@@ -53,9 +51,16 @@ class MainGame(QWidget):
         self.CheckPermission = [False,False,False]
         self.InitDraw()
 
-    "Инициализация меню, можно не трогать"
-    def InitUI(self, old):
-        "Инициализация интефейса"
+    def connect2Robot(self):
+            #self.robot = urx.Robot("192.168.0.20", use_rt=True)
+            print(self.robot)
+            for i in range(7):
+                self.robot.set_digital_out(i, False)
+            self.robot.movej(dataStructers.playerOneJPose,vel=0.6,acc=0.6)
+            return(self.robot)
+
+    def InitUI(self,old):
+
         if old==False:
 
             self.buttonsPause=[]
@@ -197,13 +202,13 @@ class MainGame(QWidget):
             self.setLayout(vbox)
             self.show()
 
-    "Меню изменение настроек"
+
     def ChangeSetting(self):
+
         self.close()
         self.__init__(False, 1)
         self.GameLoop()
 
-    "Инициализация отрисовки доски"
     def InitDraw(self):
         #gameboard picture
         fontWhite = cv2.imread("images/white_square.png")
@@ -240,7 +245,6 @@ class MainGame(QWidget):
         else:
             cv2.imwrite("images/BoardBase.png",boardPic)
 
-    "Отрисовка доски"
     def DrawBoard(self,board,player):
         if self.debug:
             print("im in drawBoardCall")
@@ -257,7 +261,6 @@ class MainGame(QWidget):
         self.chessboardDisplays[player-1].setPixmap(QPixmap(tmpImagename))
         self.chessboardDisplays[player-1].show()
 
-    "Метод где выводится картинка с шахматами (запоминание)"
     def DrawGui(self):
 
         if self.playersNum ==1:
@@ -300,17 +303,21 @@ class MainGame(QWidget):
 
     def GainDataFromThread(self,strData):
         self.gainedData=strData
+        #print('this is data in main loop',strData)
 
     def MoveDone(self,player):
         self.RobotMoveDone[player]=True
         self.GenerateMoveDone[player] = True
 
+
         if self.playersNum>1:
+
 
             if self.curPlayer[0]==0 and self.playersNum==2:
                 self.curPlayer[0]=1
             elif self.curPlayer[0]==1 and self.playersNum==2:
                 self.curPlayer[0]=0
+
 
         if self.playersNum==3:
 
@@ -429,16 +436,23 @@ class MainGame(QWidget):
 
             self.GenerateMoveDone[player] = True
 
-    def LoopThreadDone(self, cam):
+    def LoopThreadDone(self):
+
         currentPlayer = self.curPlayer[0]
         self.robot.set_digital_out(dataStructers.led_red,False)
         self.robot.set_digital_out(dataStructers.led_blue,False)
+        #self.CheckPermission[currentPlayer]=False
+
+
+
 
         if self.RobotMoveDone[currentPlayer]:
+
             prevBoard=self.playerStatus[currentPlayer][0].copy()
             a = int(self.gainedData[0:self.gainedData.find("-")])
 
-            if self.gainedData.count("+") == 1:
+            if self.gainedData.count("+")==1:
+                #c = self.gainedData[-1]
                 c = FindPosiblePromotion(self.playerStatus[self.curPlayer[0]][0],self.gainedData[-1])
                 b = int(self.gainedData[self.gainedData.find("-")+1:self.gainedData.find("+")])
                 uci = square2Uci(a)+square2Uci(b)+c
@@ -447,6 +461,8 @@ class MainGame(QWidget):
                 b = int(self.gainedData[self.gainedData.find("-")+1:len(self.gainedData)])
                 uci = square2Uci(a)+square2Uci(b)
             move=chess.Move.from_uci(uci)
+
+
 
             if prevBoard.is_castling(move):
                 castling = 1
@@ -459,7 +475,9 @@ class MainGame(QWidget):
             file.write(self.playerStatus[self.curPlayer[0]][0].fen())
             file.close()
             boardWithMove = self.playerStatus[self.curPlayer[0]][0]
-
+            #
+            #print(boardWithMove.fen())
+            #
             if self.playerStatus[currentPlayer][1]:
                 if self.playerStatus[currentPlayer][0].is_check():
 
@@ -468,13 +486,16 @@ class MainGame(QWidget):
 
             self.RobotMoveDone[currentPlayer]=False
             if self.playerStatus[currentPlayer][1]==True:
-                robotMoveThread=RoboWorker(currentPlayer,[a,b,c],[prevBoard,boardWithMove],self.robot,castling,cam)
+                robotMoveThread=RoboWorker(currentPlayer,[a,b,c],[prevBoard,boardWithMove],self.robot,castling,self.camera)
             elif self.playerStatus[currentPlayer][1]==False:
                 castling+=3
-                robotMoveThread=RoboWorker(currentPlayer,[a,b,c],[prevBoard,boardWithMove],self.robot,castling,cam)
+                robotMoveThread=RoboWorker(currentPlayer,[a,b,c],[prevBoard,boardWithMove],self.robot,castling,self.camera)
             robotMoveThread.doneSignal.connect(self.MoveDone)
             robotMoveThread.start()
-            robotMoveThread.setObjectName("Robot move  thread")
+            robotMoveThread.setObjectName("Rpbpt move  thread")
+
+
+
 
             if BoardTurn(prevBoard) =='w':
                 message = 'Player move: '+uci
@@ -487,7 +508,10 @@ class MainGame(QWidget):
 
         self.Draw(self.playerStatus[currentPlayer][0],currentPlayer)
 
+        #self.GenerateMoveDone[player]= True
+
     def Loop(self):
+
 
             currentPlayer = self.curPlayer[0]
             #self.Draw(self.playerStatus[currentPlayer][0],currentPlayer)
@@ -568,7 +592,7 @@ class MainGame(QWidget):
                                 self.robot.set_digital_out(2+currentPlayer,False)
                                 self.GenerateMoveDone[currentPlayer] = False
                                 #print('1111111111111111111111111111')
-                                checkPlayer = CheckBoard(self.curPlayer[0],self.playerStatus[currentPlayer][0],2, self.robot)
+                                checkPlayer = CheckBoard(self.curPlayer[0],self.playerStatus[currentPlayer][0],self.robot,self.camera,2)
                                 checkPlayer.result[str].connect(self.PlayerCheckDone)
                                 checkPlayer.start()
 
@@ -630,21 +654,25 @@ class MainGame(QWidget):
                             self.robot.set_digital_out(2+currentPlayer,False)
 
     def CorrectBaseOne(self):
-        restartThread = CheckBoard(0,'',self.robot,cam,3, self.robot)
+
+        restartThread = CheckBoard(0,'',self.robot,self.camera,3)
         self.robot.set_digital_out(dataStructers.OutButtonOne, True)
         restartThread.start()
-
     def CorrectBaseTwo(self):
-        restartThread = CheckBoard(1,'',self.robot,cam,3, self.robot)
+
+        restartThread = CheckBoard(1,'',self.robot,self.camera,3)
         self.robot.set_digital_out(dataStructers.OutButtonTwo, True)
         restartThread.start()
-
     def CorrectBaseThree(self):
 
-        restartThread = CheckBoard(2,'',self.robot,self.camera,3, self.robot)
+        restartThread = CheckBoard(2,'',self.robot,self.camera,3)
         self.robot.set_digital_out(dataStructers.OutButtonThree, True)
         restartThread.start()
-    "Метод проверки сделано ли фото или нет"
+
+
+    def StopGame(self,number):
+            print(number)
+
     def initPhotoDone(self,data):
         print(data)
         print('Init Photo done')
@@ -658,83 +686,119 @@ class MainGame(QWidget):
                 self.robot.set_digital_out(2+self.curInt-1,False)
         self.curInt+=1
 
-    "Метод перезапуска игры для 1 игрока"
     def RestartOne(self):
+        #self.playerStatus[0][0] = chess.Board()   
         self.playerStatus[0][4] = True
-        self.isdone=False
-        self.logs[0].append("Restart\n")
 
-    "Метод перезапуска игры для 2 игрока"
+        self.isdone=False
+       # t =
+        self.logs[0].append("Restart\n")
+        self.Speaker("Перезапуск первого стола")
+
     def RestartTwo(self):
         #self.playerStatus[1][0] = chess.Board()       
         self.playerStatus[1][4] = True
 
         self.logs[1].append("Restart\n")
+        self.Speaker("Перезапуск второго стола")
 
-    "Метод перезапуска игры для 3 игрока"
     def RestartThree(self):
         #self.playerStatus[2][0] = chess.Board()     
         self.playerStatus[2][4] = True
 
         self.timer.start(0)
         self.logs[2].append("Restart\n")
+        self.Speaker("Перезапуск третьего стола")
 
-    "Метод паузы игры для 1 игрока"
     def PauseOne(self):
         if self.playerStatus[0][5]==False:
             self.playerStatus[0][5]=True
             self.buttonsPause[0].setText('Unpause')
             self.logs[0].append("Pause\n")
-
+            self.Speaker("Поставлена пауза на первом игроке")
         elif self.playerStatus[0][5]==True:
             self.playerStatus[0][5]=False
             self.buttonsPause[0].setText('Pause')
             self.logs[0].append("Pause\n")
+            self.Speaker("Игрок один Игра продолжается")
 
-    "Метод паузы игры для 2 игрока"
     def PauseTwo(self):
         if self.playerStatus[1][5]==False:
             self.playerStatus[1][5]=True
             self.buttonsPause[1].setText('Unpause')
             self.logs[1].append("Pause\n")
-
+            self.Speaker("Поставлена пауза на втором игроке")
         elif self.playerStatus[1][5]==True:
             self.playerStatus[1][5]=False
             self.buttonsPause[1].setText('Pause')
             self.logs[1].append("Pause\n")
+            self.Speaker("Игрок два Игра продолжается")
 
-    "Метод паузы игры для 3 игрока"
     def PauseThree(self):
         if self.playerStatus[2][5]==False:
             self.playerStatus[2][5]=True
             self.buttonsPause[2].setText('Unpause')
             self.logs[2].append("Pause\n")
-
+            self.Speaker("Поставлена пауза на третьем игроке")
         elif self.playerStatus[2][5]==True:
             self.playerStatus[2][5]=False
             self.buttonsPause[2].setText('Pause')
             self.logs[2].append("Pause\n")
+            self.Speaker("Игрок Три Игра продолжается")
 
-    "Метод для запуска фотографирования"
+    def Speaker(self, text):
+        speaker = win32com.client.Dispatch("SAPI.SpVoice")
+        speaker.Speak(text)
+
     def InitPhoto(self):
 
-        if self.initDone or self.playerStatus[self.curInt][1] == 0:
+        if self.initDone or self.playerStatus[self.curInt][1]==0:
             self.Loop()
+            #print('init done')  
         elif self.initDone ==False and self.GenerateMoveDone[self.curInt]:
 
-                makeFirstPhotoEvent = CheckBoard(self.curInt,self.playerStatus[self.curInt][0],1, self.robot)
+                makeFirstPhotoEvent = CheckBoard(self.curInt,self.playerStatus[self.curInt][0],self.robot,self.camera,1)
                 makeFirstPhotoEvent.result[str].connect(self.initPhotoDone)
                 makeFirstPhotoEvent.setObjectName('Init thread')
                 makeFirstPhotoEvent.start()
 
                 self.GenerateMoveDone[self.curInt] = False
 
-    "Основной цикл"
+    def ButtonPushed(self,player):
+        pass
+        #self.CheckPermission[player]=True
+    def checkButtons(self):
+        pass
+       # print ('lets check button in game.py')
+       # if self.robot.get_digital_in(dataStructers.InButtonOne) == True:
+       #     print ('Button for player one')
+       #     self.CheckPermission[0]=True
+       # elif self.robot.get_digital_in(dataStructers.InButtonTwo) == True:
+       #     print ('button for player two')
+       #     self.CheckPermission[1]=True
+       # elif self.robot.get_digital_in(dataStructers.InButtonThree) == True:
+        #    print ('button for player three')
+       #     self.CheckPermission[2]=True
+        #def EmitSignal(self,event,signal, value):
+        #    buttonCheckEvent = event
+        #    if value == int:
+        #        buttonCheckEvent.doneSignal[int].connect(signal)
+        #    elif value == str:
+        #        buttonCheckEvent.doneSignal[str].connect(signal)
+        #    buttonCheckEvent.start()
+
     def GameLoop(self):
 
-        self.playerStatus =[]
+        self.playerStatus = []
         self.engine = ChessEngine(False)
         boards = []
+        #ButtonCheckEvent = ButtonCheck(self.robot)
+        #ButtonCheckEvent.doneSignal[int].connect(self.ButtonPushed)
+        #ButtonCheckEvent.start()
+        #EmitSignal(ButtonCheck(self.robot),ButtonPushed, int)
+
+
+
         for i in range(3):
 
             '''
@@ -745,7 +809,8 @@ class MainGame(QWidget):
             j = 2 difficalty for robot ai
             j = 3 difficluty for player AI
             j = 4 gameOver status (True or false)
-            j = 5 pause    
+            j = 5 pause
+            
             '''
             try:
                 filename = 'player'+str(i)+'.txt'
@@ -763,17 +828,37 @@ class MainGame(QWidget):
         self.timer.setInterval(300)
         self.timer.start(1)
 
-        #self.timer2 = QtCore.QTimer()
-        #self.timer2.timeout.connect(self.checkButtons)
-        #self.timer2.setInterval(500)
-        #self.timer2.start(1)
+        self.timer2 = QtCore.QTimer()
+        self.timer2.timeout.connect(self.checkButtons)
+        self.timer2.setInterval(500)
+        self.timer2.start(1)
+
+
+
+
+
+        #print('playersStats',self.playerStatus)
+#         
+#         self.timer = QtCore.QTimer()
+#         self.timer.timeout.connect(self.Loop)
+#         self.timer.setInterval(300)
+#         self.timer.start(1) 
+#         
+    
+           
+            
+    
+    
+                
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    game = MainGame(True,3)
-
+    game = MainGame(False,3)
+    
     game.GameLoop()
     
     sys.exit(app.exec_())
 
+    

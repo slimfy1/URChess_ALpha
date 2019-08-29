@@ -1,16 +1,14 @@
 import sys
 import time
 
-import urx
 import cv2
 from PyQt5.Qt import QVBoxLayout, QPushButton
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QApplication, QLabel, QDialog, QGridLayout
 from CamPhoto import *
 import dataStructers
+from UtilityFucntions import FakeRobot
 import threading
-from InitAll import ConnectionList
-
 
 class StoppableThread(threading.Thread):
     """Thread class with a stop() method. The thread itself has to check
@@ -30,14 +28,14 @@ class StoppableThread(threading.Thread):
 class InitScreenRobot(QDialog):
     def __init__(self, robot):
         super().__init__()
-
+        
 #         try:
 #             while True:
 #                 done = self.connect2Robot()
 #                 if type(done)!='None':
 #                     break
 #         except TimeoutException:
-#             pass
+#             pass        
         self.baseOne = 0
         self.baseTwo = 0
         self.baseThree = 0
@@ -54,17 +52,22 @@ class InitScreenRobot(QDialog):
         self.camTwo = 0
         self.camThree = 0
 
-        self.robot = robot
+        self.cam = cv2.VideoCapture(0)
+
+        self.robot = robot    
         print("robot:", self.robot)    
         self.initUI()
         
-    def click_and_crop(self, event, x, y):
+    def click_and_crop(self,event, x, y, flags, param,):
         
-        temp = self.image.copy()
-
+        temp =self.image.copy()
+    
+    #refPt=[(69, 118), (309, 342)]
         if event == cv2.EVENT_LBUTTONDOWN:
             self.refPt = [(x, y)]
             self.cropping = True
+
+            
  
     # check to see if the left mouse button was released
         elif event == cv2.EVENT_LBUTTONUP:
@@ -72,6 +75,7 @@ class InitScreenRobot(QDialog):
         # the cropping operation is finished
             self.refPt.append((x, y))
             self.cropping = False
+ 
         # draw a rectangle around the region of interest
             cv2.rectangle(self.image, self.refPt[0], self.refPt[1], (0, 255, 0), 2)
             cv2.imshow("image", self.image)
@@ -79,9 +83,9 @@ class InitScreenRobot(QDialog):
             cv2.imshow("Selected Roi", roi)
             cv2.waitKey(0)
             #print(self.refPt)
-            self.status = True
-
-    def ReturnCoords(self, square):
+            self.status =True
+    
+    def ReturnCoords(self,square):
         tick = 0
         res=[0,0]
         for x in range(8):
@@ -92,13 +96,15 @@ class InitScreenRobot(QDialog):
                 
                 tick+=1    
         
-        return res
-
-    def Roi(self, param, cam):
+        return(res)
+            
+            
+    def Roi(self,param, cam):
         
-        self.status = False
-        self.refPt = []
+        self.status =False
+        self.refPt =[]
         self.cropping = True
+        #cam = cv2.VideoCapture(self.camId)
         while True:
             ret, self.image = cam.read()
             img = self.image.copy()
@@ -108,8 +114,9 @@ class InitScreenRobot(QDialog):
             cv2.imshow('Correct camera pose',img)
             key = cv2.waitKey(1) & 0xFF
             if key == ord("c"):
+                #self.pl
                 break
-
+        #self.image = cv2.resize(self.image,(450,450))
         clone = self.image.copy()
 
         cv2.namedWindow("image")
@@ -155,8 +162,10 @@ class InitScreenRobot(QDialog):
                     cv2.imwrite('images/cb2'+ str(self.roiPlayer) +'.bmp',roi)
                 if self.roiPlayer ==3:
                     cv2.imwrite('images/cb3'+ str(self.roiPlayer) +'.bmp',roi)
+                    
     
     def initUI(self):
+        
         grid = QGridLayout()
         
         
@@ -263,7 +272,7 @@ class InitScreenRobot(QDialog):
         
         btnOneCamGT = QPushButton('GoTo Cam Two',self)
         btnOneCamGT.resize(100,50)
-        btnOneCamGT.clicked.connect(self.GTnumbOne)
+        btnOneCamGT.clicked.connect(self.GTCamOne)
         grid.addWidget(btnOneCamGT,10,0)
         
         btnTwoMainGT = QPushButton('GT Base Two pose',self)
@@ -283,7 +292,7 @@ class InitScreenRobot(QDialog):
         
         btnTwoCamGT = QPushButton('GT Cam Two',self)
         btnTwoCamGT.resize(100,50)
-        btnTwoCamGT.clicked.connect(self.GTnumbTwo)
+        btnTwoCamGT.clicked.connect(self.GTCamTwo)
         grid.addWidget(btnTwoCamGT,10,1)
         
         btnThreeMainGT = QPushButton('GT Base Three',self)
@@ -303,7 +312,7 @@ class InitScreenRobot(QDialog):
         
         btnThreeCamGT = QPushButton('GTCam Three',self)
         btnThreeCamGT.resize(100,50)
-        btnThreeCamGT.clicked.connect(self.GTnumbTr)
+        btnThreeCamGT.clicked.connect(self.GTCamThree)
         grid.addWidget(btnThreeCamGT,10,2)
         
         lblCOne = QLabel("Tests",self)
@@ -315,17 +324,17 @@ class InitScreenRobot(QDialog):
         
         btnGetPhotoOne = QPushButton('Get Photo 1',self)
         btnGetPhotoOne.resize(100,50)
-        btnGetPhotoOne.clicked.connect(self.GetPhoto)
+        btnGetPhotoOne.clicked.connect(self.GetPhotoOne)
         grid.addWidget(btnGetPhotoOne,12,0)
         
         btnGetPhotoTwo = QPushButton('Get Photo 2',self)
         btnGetPhotoTwo.resize(100,50)
-        btnGetPhotoTwo.clicked.connect(self.GetPhoto)
+        btnGetPhotoTwo.clicked.connect(self.GetPhotoTwo)
         grid.addWidget(btnGetPhotoTwo,12,1)
         
         btnGetPhotoThree = QPushButton('Get Photo 3',self)
         btnGetPhotoThree.resize(100,50)
-        btnGetPhotoThree.clicked.connect(self.GetPhoto)
+        btnGetPhotoThree.clicked.connect(self.GetPhotoThree)
         grid.addWidget(btnGetPhotoThree,12,2)
         
         
@@ -359,8 +368,7 @@ class InitScreenRobot(QDialog):
         #vbox.addLayout(hbox)
         
         self.setLayout(vbox) 
-        self.show()
-
+        self.show()  
     def set_freeDrive(self):
         self.robot.set_freedrive(True)
 
@@ -382,12 +390,15 @@ class InitScreenRobot(QDialog):
         file.write("\n"+lst[param]+ '=' + str(data) + "\n")
         file.write(secondPart)
         file.close
+        
+        
     
     def BaseOneGet(self):
         self.baseOne= self.robot.getl()
         #self.baseOne = [1,1,1,1,1,1]
         self.WriteData('#*12','#*13',self.baseOne,2)
-
+        
+    
     def BaseTwoGet(self):
         self.baseTwo= self.robot.getl()
         #self.baseTwo = [1,2,1,1,1,1]
@@ -402,7 +413,8 @@ class InitScreenRobot(QDialog):
         self.JOne= self.robot.getj()
         #self.JOne =[1,4,1,1,1,1]
         self.WriteData('#*11','#*12',self.JOne,1)
-
+        
+    
     def JTwoGet(self):
         self.JTwo= self.robot.getj()
         #self.JTwo =[1,3,2,1,1,1]
@@ -417,7 +429,8 @@ class InitScreenRobot(QDialog):
         self.DropWOne= self.robot.getl()
         #self.DropWOne =[7,3,1,1,1,1]
         self.WriteData('#*14','#*15',self.DropWOne,4)
-
+        
+    
     def DropWTwoGet(self):
         self.DropWTwo= self.robot.getl()
         #self.DropWTwo =[1,3,1,8,1,1]
@@ -432,7 +445,8 @@ class InitScreenRobot(QDialog):
         self.DropBOne= self.robot.getl()
         #self.DropBOne =[1,3,1,2,8,1]
         self.WriteData('#*15','#*16',self.DropBOne,5)
-
+        
+    
     def DropBTwoGet(self):
         self.DropBTwo= self.robot.getl()
         #self.DropBTwo =[5,3,1,2,8,1]
@@ -442,12 +456,13 @@ class InitScreenRobot(QDialog):
         self.DropBThree= self.robot.getl()
         #self.DropBThree =[1111111,3,1,2,8,1]
         self.WriteData('#*35','#*36',self.DropBThree,17)
-
+    
+    #============================
     def CamOneGet(self):      
         self.camOne= self.robot.getj()
         #self.camOne =[1111111,3,0,2,0,222222]
         self.WriteData('#*13','#*14',self.camOne,3) 
-
+        
     def CamTwoGet(self):      
         self.camTwo= self.robot.getj()
         #self.camTwo =[1111111,3,0,2,0,1]
@@ -462,32 +477,28 @@ class InitScreenRobot(QDialog):
         if self.baseOne ==0:
             self.robot.movel(dataStructers.playerOneLPose,acc=0.3,vel=0.3)
         else:
-            self.robot.movel(self.baseOne,acc=0.3,vel=0.3)
-
+            self.robot.movel(self.baseOne,acc=0.3,vel=0.3)   
     def GTbaseTwo(self):
         if self.baseTwo ==0:
             self.robot.movel(dataStructers.playerTwoLPose,acc=0.3,vel=0.3)
         else:
-            self.robot.movel(self.baseTwo,acc=0.3,vel=0.3)
-
+            self.robot.movel(self.baseTwo,acc=0.3,vel=0.3)    
     def GTbaseThree(self):
         if self.baseThree ==0:
             self.robot.movel(dataStructers.playerThreeLPose,acc=0.3,vel=0.3)
         else:
-            self.robot.movel(self.baseThree,acc=0.3,vel=0.3)
-
+            self.robot.movel(self.baseThree,acc=0.3,vel=0.3)   
+    
     def GTJOne(self):
-        if self.JOne == 0:
+        if self.JOne ==0:
             self.robot.movej(dataStructers.playerOneJPose,acc=0.3,vel=0.3)
         else:
-            self.robot.movej(self.JOne,acc=0.3,vel=0.3)
-
+            self.robot.movej(self.JOne,acc=0.3,vel=0.3)   
     def GTJTwo(self):
         if self.JTwo ==0:
             self.robot.movej(dataStructers.playerTwoJPose,acc=0.3,vel=0.3)
         else:
-            self.robot.movel(self.JTwo,acc=0.3,vel=0.3)
-
+            self.robot.movel(self.JTwo,acc=0.3,vel=0.3)   
     def GTJThree(self):
         if self.JThree ==0:
             self.robot.movel(dataStructers.playerThreeJPose,acc=0.3,vel=0.3)
@@ -552,12 +563,12 @@ class InitScreenRobot(QDialog):
         else:
             pose = self.DropWThree
         pose[2]+=0.08
-        self.robot.movel(pose, acc=0.3, vel=0.3)
+        self.robot.movel(pose,acc=0.3,vel=0.3) 
         pose[2]-=0.08 
-        self.robot.movel(pose, acc=0.3, vel=0.3)
+        self.robot.movel(pose,acc=0.3,vel=0.3) 
         time.sleep(2)
         pose[2]+=0.08
-        self.robot.movel(pose, acc=0.3, vel=0.3)
+        self.robot.movel(pose,acc=0.3,vel=0.3) 
         
         if self.DropBThree ==0:
             pose = dataStructers.figuresDropThreeBlack
@@ -565,42 +576,31 @@ class InitScreenRobot(QDialog):
             pose = self.DropBThree
         
         pose[2]+=0.08
-        self.robot.movel(pose, acc=0.3, vel=0.3)
+        self.robot.movel(pose,acc=0.3,vel=0.3) 
         pose[2]-=0.08 
-        self.robot.movel(pose, acc=0.3, vel=0.3)
+        self.robot.movel(pose,acc=0.3,vel=0.3) 
         time.sleep(2)
         pose[2]+=0.08
         self.robot.movel(pose,acc=0.3,vel=0.3) 
     
-    def GTCam(self,gtnumb):
-        if gtnumb == 1:
-            if self.camOne == 0:
-                self.robot.movej(dataStructers.playerOneCamChessboard, acc=0.3, vel=0.3)
-            else:
-                self.robot.movej(self.camOne, acc=0.3, vel=0.3)
-        if gtnumb == 2:
-            if self.camTwo == 0:
-                self.robot.movej(dataStructers.playerTwoCamChessboard, acc=0.3, vel=0.3)
-            else:
-                self.robot.movej(self.camTwo, acc=0.3, vel=0.3)
-        if gtnumb == 3:
-            if self.camThree == 0:
-                self.robot.movej(dataStructers.playerThreeCamChessboard, acc=0.3, vel=0.3)
-            else:
-                self.robot.movej(self.camThree, acc=0.3, vel=0.3)
-
-    def GTnumbOne(self):
-        gtnumb = int('1')
-        self.GTCam(gtnumb)
-
-    def GTnumbTwo(self):
-        gtnumb = int('2')
-        self.GTCam(gtnumb)
-
-    def GTnumbTr(self):
-        gtnumb = int('3')
-        self.GTCam(gtnumb)
-
+    def GTCamOne(self):
+        if self.camOne ==0:
+            self.robot.movej(dataStructers.playerOneCamChessboard,acc=0.3,vel=0.3)
+        else:
+            self.robot.movej(self.camOne,acc=0.3,vel=0.3)  
+            
+    def GTCamTwo(self):
+        if self.camTwo ==0:
+            self.robot.movej(dataStructers.playerTwoCamChessboard,acc=0.3,vel=0.3)
+        else:
+            self.robot.movej(self.camTwo,acc=0.3,vel=0.3)  
+            
+    def GTCamThree(self):
+        if self.camThree ==0:
+            self.robot.movej(dataStructers.playerThreeCamChessboard,acc=0.3,vel=0.3)
+        else:
+            self.robot.movej(self.camThree,acc=0.3,vel=0.3)  
+    
     def TestBoardOne(self):
         if self.baseOne ==0:
             pose = dataStructers.playerOneLPose
@@ -630,7 +630,6 @@ class InitScreenRobot(QDialog):
             p[0]=p[0] - deltaX*res[0]
             p[1]=p[1] - deltaY*res[1]
             self.robot.movel(p,vel =0.4,acc=0.4)
-
     def TestBoardThree(self):
         if self.baseThree ==0:
             pose = dataStructers.playerThreeLPose
@@ -646,22 +645,61 @@ class InitScreenRobot(QDialog):
             p[1]=p[1] - deltaY*res[0]
             self.robot.movel(p,vel =0.4,acc=0.4)
     
-    def GetPhoto(self):
+    def GetPhotoOne(self):
+        if self.JTwo == 0:
+            self.robot.movej(dataStructers.playerTwoJPose, acc=0.3, vel=0.3)
+        else:
+            self.robot.movej(self.JTwo, acc=0.3, vel=0.3)
+        if self.camTwo == 0:
+            self.robot.movej(dataStructers.playerTwoCamChessboard, acc=0.3, vel=0.3)
+        else:
+            self.robot.movej(self.camTwo, acc=0.3, vel=0.3)
 
         MakePt = CamWork()
-        MakePt.MakePhotoBoard("ts")
+        cam = self.cam
+        MakePt.MakePhotoTest(cam)
         pix = QPixmap('ts.png')
         self.Screen.setPixmap(pix)
 
+    def GetPhotoTwo(self):
+        if self.JTwo ==0:
+            self.robot.movej(dataStructers.playerTwoJPose,acc=0.3,vel=0.3)
+        else:
+            self.robot.movej(self.JTwo,acc=0.3,vel=0.3)   
+        if self.camTwo ==0:
+            self.robot.movej(dataStructers.playerTwoCamChessboard,acc=0.3,vel=0.3)
+        else:
+            self.robot.movej(self.camTwo,acc=0.3,vel=0.3)
+
+        MakePt = CamWork()
+        cam = self.cam
+        MakePt.MakePhotoTest(cam)
+        pix = QPixmap('ts.png')
+        self.Screen.setPixmap(pix)
+            
+    def GetPhotoThree(self):
+        if self.JThree ==0:
+            self.robot.movej(dataStructers.playerThreeJPose,acc=0.3,vel=0.3)
+        else:
+            self.robot.movej(self.JThree,acc=0.3,vel=0.3)   
+        if self.camThree ==0:
+            self.robot.movej(dataStructers.playerThreeCamChessboard,acc=0.3,vel=0.3)
+        else:
+            self.robot.movej(self.camThree,acc=0.3,vel=0.3)
+
+        MakePt = CamWork()
+        cam = self.cam
+        MakePt.MakePhotoTest(cam)
+        pix = QPixmap('ts.png')
+        self.Screen.setPixmap(pix)
+    
 if __name__ == '__main__':
 
     app = QApplication(sys.argv)
     robot =[]
-    #robot = FakeRobot('ip', 1)
+    robot = FakeRobot('ip', 1)
     #robot = urx.Robot("192.168.0.20", use_rt=True)
-    robotcon = ConnectionList()
-    robot = robotcon.connect2Robot()
     ex = InitScreenRobot(robot)
-
+    
     sys.exit(app.exec_())
     #playerOneRfPt
